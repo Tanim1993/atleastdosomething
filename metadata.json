@@ -1,0 +1,6 @@
+{
+  "name": "Atleast Do Something Foundation",
+  "description": "A modern, polite, and trustworthy website for Atleast Do Something Foundation, a Bangladeshi voluntary non-profit organization. Includes English/Bengali translation details, dynamic content customization, an admin panel with passcode authentication, user account management, and live traffic analytics monitoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
