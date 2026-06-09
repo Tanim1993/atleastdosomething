@@ -3,9 +3,139 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { Calendar, Tag, Camera, HelpCircle, ArrowUpRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Tag, Camera, HelpCircle, ArrowUpRight, ChevronLeft, ChevronRight, Play, Pause, Clock } from 'lucide-react';
 import { Language, GalleryItem } from '../types';
+
+interface GalleryCardProps {
+  item: GalleryItem;
+  currentLang: Language;
+  key?: string;
+}
+
+function GalleryCard({ item, currentLang }: GalleryCardProps) {
+  // Extract all non-empty unique image URLs, falling back to item.imageUrl
+  const images = Array.from(new Set([
+    item.imageUrl,
+    ...(item.imageUrls || [])
+  ])).filter((url): url is string => typeof url === 'string' && url.trim() !== '');
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const slideInterval = item.slideDuration || 3000;
+
+  // Handle auto slide cycle with safe interaction resetting
+  useEffect(() => {
+    if (images.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    }, slideInterval);
+
+    return () => clearInterval(timer);
+  }, [slideInterval, images.length, currentIndex]);
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+  };
+
+  return (
+    <div 
+      className="bg-stone-50 border border-stone-100 rounded-2xl overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col group relative"
+      id={`gallery-item-${item.id}`}
+    >
+      <div className="relative aspect-4/3 overflow-hidden bg-stone-100">
+        <img
+          src={images[currentIndex] || "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=600"}
+          alt={currentLang === 'en' ? item.title.en : item.title.bn}
+          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
+          referrerPolicy="no-referrer"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=600";
+          }}
+        />
+        
+        {/* Floating category tag */}
+        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs text-[10px] font-bold text-emerald-800 px-2.5 py-1 rounded-md border border-emerald-100 z-10">
+          {currentLang === 'en' ? item.category.en : item.category.bn}
+        </div>
+
+        {/* Slider Controls if multiple images are present */}
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={handlePrev}
+              type="button"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-black/40 hover:bg-black/70 text-white rounded-full transition-all opacity-0 group-hover:opacity-100 shadow-sm z-15 cursor-pointer"
+              aria-label="Previous image"
+              id={`prev-btn-${item.id}`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleNext}
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-black/40 hover:bg-black/70 text-white rounded-full transition-all opacity-0 group-hover:opacity-100 shadow-sm z-15 cursor-pointer"
+              aria-label="Next image"
+              id={`next-btn-${item.id}`}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+
+            {/* Pagination Indicators / Dots */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/30 backdrop-blur-xs py-1 px-1.5 rounded-full z-15">
+              {images.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setCurrentIndex(idx);
+                  }}
+                  className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${
+                    currentIndex === idx ? 'bg-white w-3.5' : 'bg-white/50 hover:bg-white/80'
+                  }`}
+                  aria-label={`Go to slide ${idx + 1}`}
+                  id={`dot-${item.id}-${idx}`}
+                />
+              ))}
+            </div>
+
+            {/* Slider Counter overlay */}
+            <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-xs text-[9px] font-bold text-white px-2 py-0.5 rounded-md z-15">
+              {currentIndex + 1} / {images.length}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Text metadata */}
+      <div className="p-4 flex-grow flex flex-col justify-between space-y-2">
+        <h4 className="font-sans font-semibold text-xs sm:text-sm text-stone-800 line-clamp-2">
+          {currentLang === 'en' ? item.title.en : item.title.bn}
+        </h4>
+        
+        <div className="flex items-center justify-between text-[11px] text-stone-400 pt-2 border-t border-stone-100">
+          <div className="flex items-center gap-1 font-mono">
+            <Calendar className="w-3.5 h-3.5 text-stone-300" />
+            <span>{item.date}</span>
+          </div>
+          <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
+            <span>{currentLang === 'en' ? "Verified" : "যাচাইকৃত"}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface GalleryProps {
   currentLang: Language;
@@ -26,7 +156,6 @@ export default function Gallery({ currentLang, galleryItems }: GalleryProps) {
     if (cat === 'all') {
       return currentLang === 'en' ? "All Campaign photos" : "সব ছবি";
     }
-    // find a matching record to get translated display name
     const item = galleryItems.find(i => i.category.en.toLowerCase() === cat);
     if (!item) return cat;
     return currentLang === 'en' ? item.category.en : item.category.bn;
@@ -72,45 +201,11 @@ export default function Gallery({ currentLang, galleryItems }: GalleryProps) {
         {/* Gallery Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {getFilteredItems().map((item) => (
-            <div 
+            <GalleryCard 
               key={item.id} 
-              className="bg-stone-50 border border-stone-100 rounded-2xl overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col group"
-            >
-              <div className="relative aspect-4/3 overflow-hidden bg-stone-100">
-                <img
-                  src={item.imageUrl}
-                  alt={currentLang === 'en' ? item.title.en : item.title.bn}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    // Fallback in case image source is broken
-                    (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=600";
-                  }}
-                />
-                
-                {/* Floating category tag */}
-                <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs text-[10px] font-bold text-emerald-800 px-2.5 py-1 rounded-md border border-emerald-100">
-                  {currentLang === 'en' ? item.category.en : item.category.bn}
-                </div>
-              </div>
-
-              {/* Text metadata */}
-              <div className="p-4 flex-grow flex flex-col justify-between space-y-2">
-                <h4 className="font-sans font-semibold text-xs sm:text-sm text-stone-800 line-clamp-2">
-                  {currentLang === 'en' ? item.title.en : item.title.bn}
-                </h4>
-                
-                <div className="flex items-center justify-between text-[11px] text-stone-400 pt-2 border-t border-stone-100">
-                  <div className="flex items-center gap-1 font-mono">
-                    <Calendar className="w-3.5 h-3.5 text-stone-300" />
-                    <span>{item.date}</span>
-                  </div>
-                  <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
-                    <span>{currentLang === 'en' ? "Verified" : "যাচাইকৃত"}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+              item={item} 
+              currentLang={currentLang} 
+            />
           ))}
         </div>
 

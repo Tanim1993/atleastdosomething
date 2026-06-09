@@ -12,6 +12,7 @@ import {
   Users, 
   Plus, 
   Trash2, 
+  Edit2,
   Edit3, 
   Check, 
   Eye, 
@@ -30,7 +31,8 @@ import {
   FileText,
   UserCheck,
   FolderHeart,
-  Undo
+  Undo,
+  Camera
 } from 'lucide-react';
 
 import { 
@@ -41,7 +43,9 @@ import {
   TestimonialItem, 
   UserAccount, 
   TrafficEvent, 
-  ContactMessage 
+  ContactMessage,
+  PaymentConfig,
+  ManualDeclaration
 } from './types';
 
 import { 
@@ -51,7 +55,9 @@ import {
   DEFAULT_TESTIMONIALS, 
   DEFAULT_ADMINS, 
   DEFAULT_TRAFFIC, 
-  DEFAULT_CONTACT_MESSAGES 
+  DEFAULT_CONTACT_MESSAGES,
+  DEFAULT_PAYMENT_CONFIG,
+  DEFAULT_DECLARATIONS
 } from './mockData';
 
 // Sub-components
@@ -62,6 +68,7 @@ import Services from './components/Services';
 import Gallery from './components/Gallery';
 import Testimonials from './components/Testimonials';
 import Contact from './components/Contact';
+import ManualPledgeWidget from './components/ManualPledgeWidget';
 
 export default function App() {
   // --------- Core Stored States -----------
@@ -113,7 +120,18 @@ export default function App() {
   const [activeAdminUser, setActiveAdminUser] = useState<UserAccount | null>(null);
 
   // Active Admin Sub-Tab
-  const [activeAdminTab, setActiveAdminTab] = useState<'content' | 'services' | 'gallery' | 'users' | 'analytics' | 'messages'>('content');
+  const [activeAdminTab, setActiveAdminTab] = useState<'content' | 'services' | 'gallery' | 'users' | 'analytics' | 'messages' | 'pledges' | 'payments_config'>('content');
+
+  // Payment Dynamic Configurations & Manual Declarations State
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(() => {
+    const saved = localStorage.getItem('atleast_payment_config');
+    return saved ? JSON.parse(saved) : DEFAULT_PAYMENT_CONFIG;
+  });
+
+  const [declarations, setDeclarations] = useState<ManualDeclaration[]>(() => {
+    const saved = localStorage.getItem('atleast_declarations');
+    return saved ? JSON.parse(saved) : DEFAULT_DECLARATIONS;
+  });
 
   // Interactive dynamic counter state
   const [donorPledgeCount, setDonorPledgeCount] = useState(248);
@@ -171,6 +189,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('atleast_messages', JSON.stringify(messages));
   }, [messages]);
+
+  useEffect(() => {
+    localStorage.setItem('atleast_payment_config', JSON.stringify(paymentConfig));
+  }, [paymentConfig]);
+
+  useEffect(() => {
+    localStorage.setItem('atleast_declarations', JSON.stringify(declarations));
+  }, [declarations]);
 
   // ---------- Language Toggle Handler ----------
   const handleLanguageChange = (lang: Language) => {
@@ -235,6 +261,7 @@ export default function App() {
   };
 
   // --------- Admin Portal Action Forms ----------
+  const [serviceEditingId, setServiceEditingId] = useState<string | null>(null);
   const [newServiceTitleEn, setNewServiceTitleEn] = useState('');
   const [newServiceTitleBn, setNewServiceTitleBn] = useState('');
   const [newServiceDescEn, setNewServiceDescEn] = useState('');
@@ -246,23 +273,57 @@ export default function App() {
   const [newServiceCostBn, setNewServiceCostBn] = useState('');
   const [newServiceImageUrl, setNewServiceImageUrl] = useState('');
 
+  const handleEditService = (item: ServiceItem) => {
+    setServiceEditingId(item.id);
+    setNewServiceTitleEn(item.title.en);
+    setNewServiceTitleBn(item.title.bn);
+    setNewServiceDescEn(item.description.en);
+    setNewServiceDescBn(item.description.bn);
+    setNewServiceIcon(item.iconName);
+    setNewServiceBenEn(item.beneficiaries.en);
+    setNewServiceBenBn(item.beneficiaries.bn);
+    setNewServiceCostEn(item.costText?.en || '');
+    setNewServiceCostBn(item.costText?.bn || '');
+    setNewServiceImageUrl(item.imageUrl || '');
+  };
+
   const handleCreateService = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newServiceTitleEn || !newServiceTitleBn) return;
 
-    const newS: ServiceItem = {
-      id: `serv_${Date.now()}`,
-      title: { en: newServiceTitleEn, bn: newServiceTitleBn },
-      description: { en: newServiceDescEn, bn: newServiceDescBn },
-      iconName: newServiceIcon,
-      imageUrl: newServiceImageUrl || undefined,
-      beneficiaries: { en: newServiceBenEn || "Ongoing", bn: newServiceBenBn || "চলমান" },
-      costText: { en: newServiceCostEn || "Donation support", bn: newServiceCostBn || "মুক্ত অনুদান" },
-      isActive: true
-    };
+    if (serviceEditingId) {
+      const updated = services.map(s => {
+        if (s.id === serviceEditingId) {
+          return {
+            ...s,
+            title: { en: newServiceTitleEn, bn: newServiceTitleBn },
+            description: { en: newServiceDescEn, bn: newServiceDescBn },
+            iconName: newServiceIcon,
+            imageUrl: newServiceImageUrl || undefined,
+            beneficiaries: { en: newServiceBenEn || "Ongoing", bn: newServiceBenBn || "চলমান" },
+            costText: { en: newServiceCostEn || "Donation support", bn: newServiceCostBn || "মুক্ত অনুদান" },
+          };
+        }
+        return s;
+      });
+      setServices(updated);
+      setServiceEditingId(null);
+      trackEvent('visit', `Updated activity program: ${newServiceTitleEn}`, 'admin');
+    } else {
+      const newS: ServiceItem = {
+        id: `serv_${Date.now()}`,
+        title: { en: newServiceTitleEn, bn: newServiceTitleBn },
+        description: { en: newServiceDescEn, bn: newServiceDescBn },
+        iconName: newServiceIcon,
+        imageUrl: newServiceImageUrl || undefined,
+        beneficiaries: { en: newServiceBenEn || "Ongoing", bn: newServiceBenBn || "চলমান" },
+        costText: { en: newServiceCostEn || "Donation support", bn: newServiceCostBn || "মুক্ত অনুদান" },
+        isActive: true
+      };
+      setServices([...services, newS]);
+      trackEvent('visit', `Added new activity program: ${newServiceTitleEn}`, 'admin');
+    }
 
-    setServices([...services, newS]);
-    
     // reset form fields
     setNewServiceTitleEn('');
     setNewServiceTitleBn('');
@@ -273,7 +334,6 @@ export default function App() {
     setNewServiceCostEn('');
     setNewServiceCostBn('');
     setNewServiceImageUrl('');
-    trackEvent('visit', `Added new activity program: ${newServiceTitleEn}`, 'admin');
   };
 
   const handleToggleServiceActive = (id: string) => {
@@ -285,37 +345,90 @@ export default function App() {
   const handleDeleteService = (id: string) => {
     const filtered = services.filter(s => s.id !== id);
     setServices(filtered);
+    if (serviceEditingId === id) {
+      setServiceEditingId(null);
+    }
     trackEvent('visit', `Deleted activity program ${id}`, 'admin');
   };
 
   // Gallery Admin logic
-  const [newGalImgUrl, setNewGalImgUrl] = useState('');
+  const [galleryEditingId, setGalleryEditingId] = useState<string | null>(null);
+  const [newGalImages, setNewGalImages] = useState<string[]>([]);
+  const [tempWebUrl, setTempWebUrl] = useState('');
   const [newGalTitleEn, setNewGalTitleEn] = useState('');
   const [newGalTitleBn, setNewGalTitleBn] = useState('');
   const [newGalCatEn, setNewGalCatEn] = useState('Campaign');
   const [newGalCatBn, setNewGalCatBn] = useState('প্রচারণা');
+  const [newGalSlideDuration, setNewGalSlideDuration] = useState<number>(3000);
+
+  const handleEditGallery = (item: GalleryItem) => {
+    setGalleryEditingId(item.id);
+    const allImages = Array.from(new Set([
+      item.imageUrl,
+      ...(item.imageUrls || [])
+    ])).filter((url): url is string => typeof url === 'string' && url.trim() !== '');
+    setNewGalImages(allImages);
+    setNewGalTitleEn(item.title.en);
+    setNewGalTitleBn(item.title.bn);
+    setNewGalCatEn(item.category.en);
+    setNewGalCatBn(item.category.bn);
+    setNewGalSlideDuration(item.slideDuration || 3000);
+  };
 
   const handleCreateGallery = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newGalImgUrl || !newGalTitleEn || !newGalTitleBn) return;
+    if (newGalImages.length === 0) {
+      alert(currentLang === 'en' ? "Please upload or add at least one image." : "অনুগ্রহ করে কমপক্ষে একটি ছবি যুক্ত করুন।");
+      return;
+    }
+    if (!newGalTitleEn || !newGalTitleBn) return;
 
-    const newG: GalleryItem = {
-      id: `gal_${Date.now()}`,
-      imageUrl: newGalImgUrl,
-      title: { en: newGalTitleEn, bn: newGalTitleBn },
-      date: new Date().toISOString().split('T')[0],
-      category: { en: newGalCatEn, bn: newGalCatBn }
-    };
+    const mainImg = newGalImages[0];
+    const finalImageUrls = [...newGalImages];
 
-    setGallery([newG, ...gallery]);
-    setNewGalImgUrl('');
+    if (galleryEditingId) {
+      const updated = gallery.map(g => {
+        if (g.id === galleryEditingId) {
+          return {
+            ...g,
+            imageUrl: mainImg,
+            imageUrls: finalImageUrls,
+            title: { en: newGalTitleEn, bn: newGalTitleBn },
+            category: { en: newGalCatEn, bn: newGalCatBn },
+            slideDuration: newGalSlideDuration
+          };
+        }
+        return g;
+      });
+      setGallery(updated);
+      setGalleryEditingId(null);
+      trackEvent('visit', `Updated campaign picture record`, 'admin');
+    } else {
+      const newG: GalleryItem = {
+        id: `gal_${Date.now()}`,
+        imageUrl: mainImg,
+        imageUrls: finalImageUrls,
+        title: { en: newGalTitleEn, bn: newGalTitleBn },
+        date: new Date().toISOString().split('T')[0],
+        category: { en: newGalCatEn, bn: newGalCatBn },
+        slideDuration: newGalSlideDuration
+      };
+      setGallery([newG, ...gallery]);
+      trackEvent('visit', `Uploaded new campaign picture record`, 'admin');
+    }
+
+    setNewGalImages([]);
+    setTempWebUrl('');
     setNewGalTitleEn('');
     setNewGalTitleBn('');
-    trackEvent('visit', `Uploaded new campaign picture record`, 'admin');
+    setNewGalSlideDuration(3000);
   };
 
   const handleDeleteGallery = (id: string) => {
     setGallery(gallery.filter(g => g.id !== id));
+    if (galleryEditingId === id) {
+      setGalleryEditingId(null);
+    }
     trackEvent('visit', `Removed campaign image ${id}`, 'admin');
   };
 
@@ -521,14 +634,50 @@ export default function App() {
               </div>
             </section>
 
+            {/* MANUAL PLEDGE VERIFICATION WIDGET BLOCK */}
+            <section className="bg-stone-50/50 py-12 border-b border-stone-100" id="manual-pledge-drive">
+              <div className="max-w-3xl mx-auto px-4 sm:px-6">
+                <ManualPledgeWidget
+                  currentLang={currentLang}
+                  services={services}
+                  paymentConfig={paymentConfig}
+                  onPledgeSubmit={(newPledge) => {
+                    const declarationObj: ManualDeclaration = {
+                      id: 'decl-' + Date.now(),
+                      name: newPledge.name,
+                      email: newPledge.email,
+                      phone: newPledge.phone,
+                      amount: newPledge.amount,
+                      channel: newPledge.channel,
+                      campaignEn: newPledge.campaignEn,
+                      campaignBn: newPledge.campaignBn,
+                      referenceInfo: newPledge.referenceInfo,
+                      createdAt: new Date().toISOString(),
+                      status: 'Pending'
+                    };
+                    
+                    // Prepend declaration
+                    const updated = [declarationObj, ...declarations];
+                    setDeclarations(updated);
+                    
+                    // Increment supporter count temporarily to reward action!
+                    setDonorPledgeCount(prev => prev + 1);
+                    
+                    // Track event in analytics
+                    trackEvent('visit', `Submitted manual pledge of ${newPledge.amount} for campaign ${newPledge.campaignEn}`);
+                  }}
+                />
+              </div>
+            </section>
+
+            {/* Gallery / Evidences */}
+            <Gallery currentLang={currentLang} galleryItems={gallery} />
+
             {/* About Section */}
             <About currentLang={currentLang} siteContent={siteContent} />
 
             {/* Services / Activities */}
             <Services currentLang={currentLang} services={services} />
-
-            {/* Gallery / Evidences */}
-            <Gallery currentLang={currentLang} galleryItems={gallery} />
 
             {/* Testimonials */}
             <Testimonials currentLang={currentLang} testimonials={testimonials} />
@@ -637,6 +786,29 @@ export default function App() {
                 >
                   <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
                   <span>{currentLang === 'en' ? "Traffic & Analytics" : "ট্রাফিক ও এনালাইটিক্স"}</span>
+                </button>
+                <button
+                  onClick={() => setActiveAdminTab('pledges')}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5 ${
+                    activeAdminTab === 'pledges' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-900'
+                  }`}
+                >
+                  <FolderHeart className="w-3.5 h-3.5 text-rose-600" />
+                  <span>{currentLang === 'en' ? "Pledge Ledger" : "অনুদানের খতিয়ান"}</span>
+                  {declarations.filter(d => d.status === 'Pending').length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-rose-600 text-white leading-none">
+                      {declarations.filter(d => d.status === 'Pending').length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveAdminTab('payments_config')}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5 ${
+                    activeAdminTab === 'payments_config' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-900'
+                  }`}
+                >
+                  <Settings className="w-3.5 h-3.5 text-zinc-650 animate-spin-slow" />
+                  <span>{currentLang === 'en' ? "Payment Accounts" : "অ্যাকাউন্ট নম্বর সেটিং"}</span>
                 </button>
               </div>
 
@@ -1077,7 +1249,11 @@ export default function App() {
                   <div className="bg-white rounded-2xl border border-stone-200 p-6">
                     <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-1">
                       <Plus className="w-4 h-4 text-emerald-600" />
-                      <span>{currentLang === 'en' ? "Add New Activity / Program Card" : "নতুন কল্যাণমূলক কর্মসূচি যোগ করুন"}</span>
+                      <span>
+                        {serviceEditingId 
+                          ? (currentLang === 'en' ? "Edit Activity / Program Card" : "কল্যাণমূলক কর্মসূচি সম্পাদনা করুন") 
+                          : (currentLang === 'en' ? "Add New Activity / Program Card" : "নতুন কল্যাণমূলক কর্মসূচি যোগ করুন")}
+                      </span>
                     </h3>
 
                     <form onSubmit={handleCreateService} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1243,12 +1419,37 @@ export default function App() {
                           </select>
                         </div>
 
-                        <button
-                          type="submit"
-                          className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-xs cursor-pointer"
-                        >
-                          {currentLang === 'en' ? "Create Initiative" : "নতুন কার্যক্রম যুক্ত করুন"}
-                        </button>
+                        <div className="flex gap-2">
+                          {serviceEditingId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setServiceEditingId(null);
+                                setNewServiceTitleEn('');
+                                setNewServiceTitleBn('');
+                                setNewServiceDescEn('');
+                                setNewServiceDescBn('');
+                                setNewServiceIcon('HeartHandshake');
+                                setNewServiceBenEn('');
+                                setNewServiceBenBn('');
+                                setNewServiceCostEn('');
+                                setNewServiceCostBn('');
+                                setNewServiceImageUrl('');
+                              }}
+                              className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs uppercase tracking-wider rounded-lg shadow-xs cursor-pointer transition-colors"
+                            >
+                              {currentLang === 'en' ? "Cancel" : "বাতিল"}
+                            </button>
+                          )}
+                          <button
+                            type="submit"
+                            className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-xs cursor-pointer transition-colors"
+                          >
+                            {serviceEditingId 
+                              ? (currentLang === 'en' ? "Update Initiative" : "কার্যক্রম আপডেট করুন") 
+                              : (currentLang === 'en' ? "Create Initiative" : "নতুন কার্যক্রম যুক্ত করুন")}
+                          </button>
+                        </div>
                       </div>
 
                     </form>
@@ -1293,6 +1494,7 @@ export default function App() {
 
                             <div className="flex items-center gap-1 pt-2">
                               <button
+                                type="button"
                                 onClick={() => handleToggleServiceActive(item.id)}
                                 className="p-1 px-2 text-stone-500 hover:text-emerald-700 bg-stone-100 hover:bg-emerald-50 rounded-md text-[10px] font-bold cursor-pointer"
                                 title="Toggle visibility of this card on public homepage"
@@ -1300,6 +1502,20 @@ export default function App() {
                                 {item.isActive ? "Hide" : "Show"}
                               </button>
                               <button
+                                type="button"
+                                onClick={() => handleEditService(item)}
+                                className={`p-1 px-2 rounded-md text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 ${
+                                  serviceEditingId === item.id 
+                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                                    : 'text-stone-500 hover:text-emerald-700 bg-stone-100 hover:bg-emerald-50'
+                                }`}
+                                title="Edit details of this program"
+                              >
+                                <Edit2 className="w-3 h-3 text-stone-500 group-hover:text-emerald-700" />
+                                <span>{currentLang === 'en' ? "Edit" : "সম্পাদনা"}</span>
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => handleDeleteService(item.id)}
                                 className="p-1 text-stone-400 hover:text-rose-600 rounded-md cursor-pointer"
                                 title="Remove item entirely from memory"
@@ -1325,72 +1541,146 @@ export default function App() {
                   <div className="bg-white rounded-2xl border border-stone-200 p-6">
                     <div>
                       <h3 className="text-sm font-bold text-stone-900">
-                        {currentLang === 'en' ? "Simulate Upload / Add Campaign Image" : "নতুন কাজের বাস্তব প্রমান / ছবি যুক্ত করুন"}
+                        {galleryEditingId 
+                          ? (currentLang === 'en' ? "Edit Pinned Campaign Image" : "ক্যাম্পেইন চিত্র বিবরণী সম্পাদনা করুন")
+                          : (currentLang === 'en' ? "Add Campaign Image / Slideshow" : "নতুন কাজের বাস্তব প্রমান / ছবি যুক্ত করুন")}
                       </h3>
                       <p className="text-xs text-stone-400 mb-4 mt-1">
                         {currentLang === 'en' 
-                          ? "We represent authentic transparency. Input any high-resolution public photo URL to add it to the feed instantly."
-                          : "উচ্চমানের কাজের ছবির ওয়েব লিংক দিয়ে নতুন চিত্র যুক্ত করতে পারেন যা চিত্রশালায় দেখাবে।"}
+                          ? "Represent authentic transparency. Select multiple photos or add online URLs to build a public slideshow."
+                          : "উচ্চমানের কাজের ছবির সরাসরি ফাইল আপলোড অথবা ওয়েব লিংক দিয়ে নতুন চিত্র যুক্ত করতে পারেন যা চিত্রশালায় দেখাবে।"}
                       </p>
                     </div>
 
                     <form onSubmit={handleCreateGallery} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       
-                      <div className="space-y-1.5 md:col-span-2">
+                      {/* Interactive Multi-Image Upload Area */}
+                      <div className="space-y-4 md:col-span-2">
                         <label className="block text-xs font-bold text-stone-700">
-                          {currentLang === 'en' ? "Campaign Image (File Upload or Web URL) *" : "ক্যাম্পেইন ছবি (ফাইল আপলোড অথবা ফাস্ট ওয়েব লিংক) *"}
+                          {currentLang === 'en' ? "Campaign Images / Gallery Slideshow (Add Multiple) *" : "ক্যাম্পেইন ছবিসমূহ / ছবির স্লাইডশো (একাধিক যোগ করুন) *"}
                         </label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-                          {/* Local File Selector representation */}
-                          <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl flex items-center gap-3">
-                            <div className="w-12 h-10 bg-white rounded border border-stone-150 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
-                              {newGalImgUrl ? (
+                        
+                        {/* Currently Added Images List */}
+                        {newGalImages.length > 0 && (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 p-3 bg-stone-50 rounded-xl border border-stone-200">
+                            {newGalImages.map((url, index) => (
+                              <div key={index} className="relative aspect-video rounded-lg overflow-hidden border border-stone-200 bg-white group shadow-2xs">
                                 <img 
-                                  src={newGalImgUrl} 
-                                  alt="Stream preview" 
-                                  referrerPolicy="no-referrer"
+                                  src={url} 
+                                  alt={`Selected visual ${index + 1}`} 
                                   className="w-full h-full object-cover" 
+                                  referrerPolicy="no-referrer"
                                 />
-                              ) : (
-                                <span className="text-[8px] text-stone-400 font-bold">{currentLang === 'en' ? "Empty" : "খালি"}</span>
-                              )}
+                                {/* Overlay indicating index / main indicator */}
+                                <div className="absolute top-1 left-1 bg-black/60 text-[8px] font-bold text-white px-1 py-0.5 rounded leading-none">
+                                  {index === 0 
+                                    ? (currentLang === 'en' ? "Main Cover" : "প্রধান") 
+                                    : `${currentLang === 'en' ? "Slide" : "স্লাইড"} ${index}`}
+                                </div>
+                                
+                                {/* Hover control bar */}
+                                <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-3xs p-1 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {index > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        // Set as main image (swap to index 0)
+                                        const reordered = [...newGalImages];
+                                        const [item] = reordered.splice(index, 1);
+                                        reordered.unshift(item);
+                                        setNewGalImages(reordered);
+                                      }}
+                                      className="text-[8px] text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-wider px-1 py-0.5 cursor-pointer"
+                                      title={currentLang === 'en' ? "Set as Cover Image" : "প্রধান ছবি করুন"}
+                                    >
+                                      {currentLang === 'en' ? "Cover" : "প্রধান"}
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      // Remove image
+                                      setNewGalImages(newGalImages.filter((_, i) => i !== index));
+                                    }}
+                                    className="text-red-400 hover:text-red-300 p-0.5 cursor-pointer ml-auto"
+                                    title={currentLang === 'en' ? "Remove Image" : "ছবি সরান"}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* File Uploader Button (supporting multiple selects!) */}
+                          <div className="p-4 border border-dashed border-stone-300 rounded-xl bg-emerald-50/10 hover:bg-emerald-50/20 transition-colors flex flex-col items-center justify-center text-center space-y-2">
+                            <Camera className="w-6 h-6 text-emerald-600" />
+                            <div className="text-xs">
+                              <span className="font-bold text-stone-700">{currentLang === 'en' ? "Upload local photos" : "স্মার্টফোন/মেমোরি থেকে ফটো আপলোড করুন"}</span>
+                              <p className="text-[10px] text-stone-400 mt-0.5">{currentLang === 'en' ? "You can select multiple photos at once!" : "একসাথে এক বা একাধিক ছবি সিলেক্ট করতে পারেন!"}</p>
                             </div>
-                            <label className="relative cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors cursor-pointer shadow-2xs">
-                              <span>{currentLang === 'en' ? "Select File" : "ফাইল সিলেক্ট"}</span>
+                            <label className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm">
+                              <span>{currentLang === 'en' ? "Select Image Files" : "ছবি ফাইল পছন্দ করুন"}</span>
                               <input 
                                 type="file" 
                                 accept="image/*"
+                                multiple
                                 className="sr-only" 
                                 onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => {
-                                      if (typeof reader.result === 'string') {
-                                        setNewGalImgUrl(reader.result);
-                                      }
-                                    };
-                                    reader.readAsDataURL(file);
+                                  const files = e.target.files;
+                                  if (files && files.length > 0) {
+                                    const loadedImages: string[] = [];
+                                    let processedCount = 0;
+                                    
+                                    Array.from(files).forEach((file: any) => {
+                                      const reader = new FileReader();
+                                      reader.onloadend = () => {
+                                        if (typeof reader.result === 'string') {
+                                          loadedImages.push(reader.result);
+                                        }
+                                        processedCount++;
+                                        if (processedCount === files.length) {
+                                          setNewGalImages(prev => [...prev, ...loadedImages]);
+                                        }
+                                      };
+                                      reader.readAsDataURL(file);
+                                    });
                                   }
                                 }}
                               />
                             </label>
                           </div>
 
-                          {/* URL Direct Inputs */}
-                          <div className="md:col-span-2">
-                            <input
-                              type="text"
-                              required
-                              value={newGalImgUrl}
-                              onChange={(e) => setNewGalImgUrl(e.target.value)}
-                              placeholder="Or paste an image URL (e.g. Unsplash URL)..."
-                              className="w-full bg-stone-100/50 border border-stone-200 rounded-lg p-2 text-xs font-mono"
-                            />
-                            <p className="text-[10px] text-stone-400 mt-1">
-                              {currentLang === 'en' 
-                                ? "Uploading a file auto-generates a portable snapshot, or paste a public web link directly." 
-                                : "লোকাল ফাইল সিলেক্ট করুন অথবা সরাসরি যেকোনো পাবলিক ছবির লিংক বসিয়ে দিন।"}
+                          {/* URL Paste input option */}
+                          <div className="p-4 border border-stone-200 rounded-xl bg-stone-50 flex flex-col justify-center space-y-2 text-left">
+                            <span className="text-xs font-bold text-stone-700">{currentLang === 'en' ? "Or add online image URL directly" : "অথবা ইন্টারনেটের কোনো ছবির লিংক যুক্ত করুন"}</span>
+                            <div className="flex gap-2">
+                              <input
+                                type="url"
+                                value={tempWebUrl}
+                                onChange={(e) => setTempWebUrl(e.target.value)}
+                                placeholder="https://images.unsplash.com/photo-..."
+                                className="flex-grow bg-white border border-stone-200 rounded-lg p-2 text-xs font-mono focus:outline-emerald-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (tempWebUrl.trim() && tempWebUrl.startsWith('http')) {
+                                    setNewGalImages(prev => [...prev, tempWebUrl.trim()]);
+                                    setTempWebUrl('');
+                                  } else {
+                                    alert(currentLang === 'en' ? "Please enter a valid HTTP/HTTPS image URL." : "অনুগ্রহ করে সঠিক ওয়েবসাইট লিংক লিখুন।");
+                                  }
+                                }}
+                                className="px-3 bg-stone-800 hover:bg-stone-900 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                              >
+                                {currentLang === 'en' ? "Add" : "যোগ"}
+                              </button>
+                            </div>
+                            <p className="text-[10px] text-stone-400">
+                              {currentLang === 'en' ? "Paste any image URL and click 'Add' to insert into slide queue." : "যেকোনো ইমেজের ওয়েব লিংক এখানে পেস্ট করে 'যোগ' এ ক্লিক করুন।"}
                             </p>
                           </div>
                         </div>
@@ -1440,12 +1730,55 @@ export default function App() {
                         />
                       </div>
 
-                      <div className="md:col-span-2 flex justify-end">
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-stone-500 mb-1 text-stone-700">
+                          {currentLang === 'en' ? "Slideshow Auto Delay Speed (Seconds)" : "স্লাইডশো অটো-প্লে পরিবর্তনের গতিবিধি (সেকেন্ড)"}
+                        </label>
+                        <select
+                          value={newGalSlideDuration}
+                          onChange={(e) => setNewGalSlideDuration(Number(e.target.value))}
+                          className="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none focus:bg-white"
+                        >
+                          <option value={1000}>1 {currentLang === 'en' ? "Second" : "সেকেন্ড"}</option>
+                          <option value={2000}>2 {currentLang === 'en' ? "Seconds" : "সেকেন্ড"}</option>
+                          <option value={3000}>3 {currentLang === 'en' ? "Seconds" : "সেকেন্ড"} ({currentLang === 'en' ? "Recommended" : "প্রস্তাবিত"})</option>
+                          <option value={4000}>4 {currentLang === 'en' ? "Seconds" : "সেকেন্ড"}</option>
+                          <option value={5000}>5 {currentLang === 'en' ? "Seconds" : "সেকেন্ড"}</option>
+                          <option value={8000}>8 {currentLang === 'en' ? "Seconds" : "সেকেন্ড"}</option>
+                        </select>
+                        <p className="text-[10px] text-stone-400 mt-1">
+                          {currentLang === 'en'
+                            ? "Determines how fast photos cycle when this specific campaign slideshow is viewed by visitors on the homepage."
+                            : "এই ক্যাম্পেইনটি যখন ভিজিটর হোমপেজে স্লাইডশো আকারে দেখবেন, কত সেকেন্ড পর পর স্বয়ংক্রিয়ভাবে ছবি পরিবর্তিত হবে তা নির্ধারণ করুন।"}
+                        </p>
+                      </div>
+
+                      <div className="md:col-span-2 flex justify-end gap-2">
+                        {galleryEditingId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setGalleryEditingId(null);
+                              setNewGalImages([]);
+                              setTempWebUrl('');
+                              setNewGalTitleEn('');
+                              setNewGalTitleBn('');
+                              setNewGalCatEn('Campaign');
+                              setNewGalCatBn('প্রচারণা');
+                              setNewGalSlideDuration(3000);
+                            }}
+                            className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs uppercase tracking-wider rounded-lg shadow-sm cursor-pointer transition-colors"
+                          >
+                            {currentLang === 'en' ? "Cancel Edit" : "বাতিল করুন"}
+                          </button>
+                        )}
                         <button
                           type="submit"
-                          className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-sm cursor-pointer"
+                          className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-sm cursor-pointer transition-colors"
                         >
-                          {currentLang === 'en' ? "Confirm Stream Photo" : "চিত্র পুশ করুন"}
+                          {galleryEditingId 
+                            ? (currentLang === 'en' ? "Update Pinned Post" : "পোস্ট আপডেট করুন")
+                            : (currentLang === 'en' ? "Confirm Stream Photo" : "চিত্র পুশ করুন")}
                         </button>
                       </div>
 
@@ -1461,22 +1794,39 @@ export default function App() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {gallery.map((img) => (
                         <div key={img.id} className="group bg-stone-50 border border-stone-200 rounded-xl overflow-hidden relative flex flex-col justify-between">
-                          <img 
-                            src={img.imageUrl} 
-                            alt="" 
-                            className="w-full aspect-video object-cover" 
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?600";
-                            }}
-                          />
+                          <div className="relative aspect-video">
+                            <img 
+                              src={img.imageUrl} 
+                              alt="" 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?600";
+                              }}
+                            />
+                            {img.imageUrls && img.imageUrls.length > 1 && (
+                              <span className="absolute bottom-1 right-1 bg-black/70 text-[8px] font-bold text-white px-1 py-0.5 rounded">
+                                {img.imageUrls.length} {currentLang === 'en' ? "Photos" : "ছবি"}
+                              </span>
+                            )}
+                          </div>
                           <div className="p-2 space-y-1 text-left flex-grow">
                             <p className="text-[10px] font-bold text-stone-700 truncate">{img.title.bn}</p>
                             <p className="text-[8px] text-stone-400 font-mono">{img.date}</p>
                           </div>
-                          <div className="p-2 border-t border-stone-100 flex justify-end">
+                          <div className="p-2 border-t border-stone-100 flex justify-between items-center bg-stone-50/30">
+                            <button
+                              onClick={() => handleEditGallery(img)}
+                              className={`p-1 px-1.5 rounded hover:bg-stone-200 transition-colors cursor-pointer text-[9px] font-bold flex items-center gap-1 ${
+                                galleryEditingId === img.id ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'text-stone-500 hover:text-emerald-700 bg-stone-100 hover:bg-emerald-50'
+                              }`}
+                              title="Edit details of this pinned post"
+                            >
+                              <Edit2 className="w-3 h-3 text-stone-500 group-hover:text-emerald-700" />
+                              <span>{currentLang === 'en' ? "Edit" : "সম্পাদনা"}</span>
+                            </button>
                             <button
                               onClick={() => handleDeleteGallery(img.id)}
-                              className="text-stone-400 hover:text-rose-600 transition-colors cursor-pointer"
+                              className="text-stone-400 hover:text-rose-600 transition-colors cursor-pointer p-0.5"
                               title="Delete picture record"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1833,6 +2183,504 @@ export default function App() {
                 </div>
               )}
 
+              {/* ======================= TAB: MANUAL PLEDGES LEDGER ======================= */}
+              {activeAdminTab === 'pledges' && (
+                <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-6">
+                  
+                  <div className="pb-3 border-b border-stone-100 flex flex-col md:flex-row md:items-center justify-between gap-3 text-left">
+                    <div>
+                      <h3 className="text-base font-bold text-stone-900">
+                        {currentLang === 'en' ? "Manual Pledge Claims & Declarations Ledger" : "ম্যানুয়াল অনুদানের খতিয়ান ও সত্যতা যাচাই"}
+                      </h3>
+                      <p className="text-xs text-stone-400 mt-1">
+                        {currentLang === 'en' 
+                          ? "Verify offline/manual transactions on bKash, Nagad, Rocket or Bank. Approve to mark as Verified or reject if fraudulent." 
+                          : "বিকাশ, নগদ, রকেট বা ব্যাংক অ্যাকাউন্টে আসা অফলাইন ও ম্যানুয়াল ফান্ড ট্রান্সফারগুলোর সাথে দাতার তথ্যের সত্যতা যাচাই করুন।"}
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2 text-xs font-bold text-stone-700">
+                      <span className="bg-amber-100 text-amber-800 px-3 py-1.5 rounded-lg">
+                        Pending: {declarations.filter(d => d.status === 'Pending').length}
+                      </span>
+                      <span className="bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg font-black">
+                        Verified: {declarations.filter(d => d.status === 'Verified').length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {declarations.length === 0 ? (
+                    <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-100 text-stone-400">
+                      <p className="text-xs">{currentLang === 'en' ? "No manual declarations recorded." : "কোনো অনুদানের ঘোষণা খুঁজে পাওয়া যায়নি।"}</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border border-stone-200 rounded-xl shadow-3xs">
+                      <table className="min-w-full divide-y divide-stone-200 text-left text-xs text-stone-600">
+                        <thead className="bg-stone-50 text-stone-800 uppercase text-[10px] font-black tracking-wider">
+                          <tr>
+                            <th className="p-4">{currentLang === 'en' ? "Contributor" : "দাতা"}</th>
+                            <th className="p-4">{currentLang === 'en' ? "Amount & Channel" : "পরিমাণ ও চ্যানেল"}</th>
+                            <th className="p-4">{currentLang === 'en' ? "Campaign Target" : "উদ্দেশ্য/ক্যাম্পেইন"}</th>
+                            <th className="p-4">{currentLang === 'en' ? "Transaction Reference Info" : "রেফারেন্স ও প্রেরক নম্বর"}</th>
+                            <th className="p-4">{currentLang === 'en' ? "Timestamp" : "তারিখ ও সময়"}</th>
+                            <th className="p-4">{currentLang === 'en' ? "Status & Action" : "অবস্থা ও পরিবর্তন"}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-100 bg-white">
+                          {declarations.map((decl) => (
+                            <tr key={decl.id} className="hover:bg-stone-50/50 transition-colors">
+                              <td className="p-4 space-y-1">
+                                <p className="font-extrabold text-stone-900">{decl.name}</p>
+                                <p className="text-[10px] text-stone-400 font-mono">{decl.email || "N/A"}</p>
+                                <p className="text-[10px] text-stone-500 font-black">{decl.phone}</p>
+                              </td>
+                              <td className="p-4 space-y-1">
+                                <p className="font-black text-sm text-[#2D5A27]">৳{decl.amount} BDT</p>
+                                <span className={`inline-block px-2 py-0.5 rounded text-[9px] uppercase font-black text-white ${
+                                  decl.channel === 'bkash' ? 'bg-rose-600' :
+                                  decl.channel === 'nagad' ? 'bg-orange-500' :
+                                  decl.channel === 'rocket' ? 'bg-indigo-700' :
+                                  'bg-teal-650'
+                                }`}>
+                                  {decl.channel.toUpperCase()}
+                                </span>
+                              </td>
+                              <td className="p-4">
+                                <p className="font-bold text-stone-800 leading-normal">{currentLang === 'en' ? decl.campaignEn : decl.campaignBn}</p>
+                              </td>
+                              <td className="p-4">
+                                <p className="font-mono bg-stone-50 border border-stone-200/60 font-medium p-2 rounded text-[10px] text-stone-700 break-all max-w-[200px]">
+                                  {decl.referenceInfo}
+                                </p>
+                              </td>
+                              <td className="p-4 font-mono text-[10px] text-stone-400 whitespace-nowrap">
+                                {new Date(decl.createdAt).toLocaleString()}
+                              </td>
+                              <td className="p-4 space-y-1.5">
+                                <div className="flex items-center">
+                                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${
+                                    decl.status === 'Verified' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
+                                    decl.status === 'Rejected' ? 'bg-rose-50 text-rose-800 border border-rose-200' :
+                                    'bg-amber-50 text-amber-800 border border-amber-200'
+                                  }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${
+                                      decl.status === 'Verified' ? 'bg-emerald-500 animate-pulse' :
+                                      decl.status === 'Rejected' ? 'bg-rose-500' :
+                                      'bg-amber-500'
+                                    }`} />
+                                    {decl.status}
+                                  </span>
+                                </div>
+                                <div className="flex gap-1 pt-1">
+                                  {decl.status !== 'Verified' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = declarations.map(d => {
+                                          if (d.id === decl.id) {
+                                            return { ...d, status: 'Verified' as const };
+                                          }
+                                          return d;
+                                        });
+                                        setDeclarations(updated);
+                                        // Dynamically increment pledge tracker count on approval!
+                                        setDonorPledgeCount(prev => prev + 1);
+                                        trackEvent('visit', `Verified manual ledger declaration for ${decl.name} of BDT ${decl.amount}`, 'admin');
+                                      }}
+                                      className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[9px] uppercase rounded-md cursor-pointer transition-colors"
+                                    >
+                                      {currentLang === 'en' ? "Verify" : "অনুমোদন করুন"}
+                                    </button>
+                                  )}
+                                  {decl.status !== 'Rejected' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = declarations.map(d => {
+                                          if (d.id === decl.id) {
+                                            return { ...d, status: 'Rejected' as const };
+                                          }
+                                          return d;
+                                        });
+                                        setDeclarations(updated);
+                                        trackEvent('visit', `Rejected manual ledger declaration from ${decl.name}`, 'admin');
+                                      }}
+                                      className="px-2 py-1 bg-rose-50 border border-rose-250 hover:bg-rose-100 text-rose-850 font-extrabold text-[9px] uppercase rounded-md cursor-pointer transition-colors"
+                                    >
+                                      {currentLang === 'en' ? "Reject" : "বাতিল করুন"}
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (confirm(currentLang === 'en' ? "Are you sure you want to delete this row?" : "আপনি কি এই অনুদানের রেকর্ডটি মুছে ফেলতে চান?")) {
+                                        const updated = declarations.filter(d => d.id !== decl.id);
+                                        setDeclarations(updated);
+                                        trackEvent('visit', `Deleted manual pledge claim from ${decl.name}`, 'admin');
+                                      }
+                                    }}
+                                    className="p-1 border border-stone-200 hover:bg-rose-100 rounded-md text-stone-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                    title={currentLang === 'en' ? "Delete Record" : "রেকর্ড মুছুন"}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+              {/* ======================= TAB: PAYMENT DETAILS AND CONFIGURATION ======================= */}
+              {activeAdminTab === 'payments_config' && (
+                <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-6">
+                  
+                  <div className="pb-3 border-b border-stone-100 flex items-center justify-between text-left">
+                    <div>
+                      <h3 className="text-base font-bold text-stone-900">
+                        {currentLang === 'en' ? "MFS & Bank Accounts configuration Panel" : "মোবাইল ফিন্যান্সিয়াল সার্ভিস (MFS) ও ব্যাংক অ্যাকাউন্ট সেটিং সমূহ"}
+                      </h3>
+                      <p className="text-xs text-stone-400 mt-1">
+                        {currentLang === 'en' 
+                          ? "This configuration dynamically maps into the manual fundraising widget steps of the home page for all visitors." 
+                          : "এখানে কনফিগার করা নম্বর এবং নির্দেশনাগুলো সরাসরি হোমপেজে অনুদান দেওয়ার সময় দেখানো হবে।"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
+                    
+                    {/* BKASH CONFIG */}
+                    <div className="bg-stone-50 border border-stone-200 rounded-xl p-5 space-y-4">
+                      <div className="flex items-center gap-2 border-b border-stone-200 pb-2.5">
+                        <div className="w-6 h-6 rounded-full bg-rose-600 text-white font-extrabold flex items-center justify-center text-xs">b</div>
+                        <h4 className="text-xs font-black text-stone-850 uppercase tracking-wider">bKash Account Config</h4>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">bKash Mobile Account Number</label>
+                          <input
+                            type="text"
+                            value={paymentConfig.bkash.number}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                bkash: { ...paymentConfig.bkash, number: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Account Type Badge (e.g. Personal / Merchant)</label>
+                          <input
+                            type="text"
+                            value={paymentConfig.bkash.type}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                bkash: { ...paymentConfig.bkash, type: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Instructions (English Line-by-Line)</label>
+                          <textarea
+                            rows={3}
+                            value={paymentConfig.bkash.instructionsEn}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                bkash: { ...paymentConfig.bkash, instructionsEn: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Instructions (Bengali - ৩-ধাপের নির্দেশাবলি)</label>
+                          <textarea
+                            rows={3}
+                            value={paymentConfig.bkash.instructionsBn}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                bkash: { ...paymentConfig.bkash, instructionsBn: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* NAGAD CONFIG */}
+                    <div className="bg-stone-50 border border-stone-200 rounded-xl p-5 space-y-4">
+                      <div className="flex items-center gap-2 border-b border-stone-200 pb-2.5">
+                        <div className="w-6 h-6 rounded-full bg-orange-500 text-white font-extrabold flex items-center justify-center text-xs">n</div>
+                        <h4 className="text-xs font-black text-stone-850 uppercase tracking-wider">Nagad Account Config</h4>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Nagad Mobile Account Number</label>
+                          <input
+                            type="text"
+                            value={paymentConfig.nagad.number}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                nagad: { ...paymentConfig.nagad, number: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Account Type Badge</label>
+                          <input
+                            type="text"
+                            value={paymentConfig.nagad.type}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                nagad: { ...paymentConfig.nagad, type: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Instructions (English)</label>
+                          <textarea
+                            rows={3}
+                            value={paymentConfig.nagad.instructionsEn}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                nagad: { ...paymentConfig.nagad, instructionsEn: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Instructions (Bengali)</label>
+                          <textarea
+                            rows={3}
+                            value={paymentConfig.nagad.instructionsBn}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                nagad: { ...paymentConfig.nagad, instructionsBn: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ROCKET CONFIG */}
+                    <div className="bg-stone-50 border border-stone-200 rounded-xl p-5 space-y-4">
+                      <div className="flex items-center gap-2 border-b border-stone-200 pb-2.5">
+                        <div className="w-6 h-6 rounded-full bg-indigo-700 text-white font-extrabold flex items-center justify-center text-xs">r</div>
+                        <h4 className="text-xs font-black text-stone-850 uppercase tracking-wider">Rocket Account Config</h4>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Rocket Mobile Account Number</label>
+                          <input
+                            type="text"
+                            value={paymentConfig.rocket.number}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                rocket: { ...paymentConfig.rocket, number: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Account Type Badge</label>
+                          <input
+                            type="text"
+                            value={paymentConfig.rocket.type}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                rocket: { ...paymentConfig.rocket, type: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Instructions (English)</label>
+                          <textarea
+                            rows={3}
+                            value={paymentConfig.rocket.instructionsEn}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                rocket: { ...paymentConfig.rocket, instructionsEn: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Instructions (Bengali)</label>
+                          <textarea
+                            rows={3}
+                            value={paymentConfig.rocket.instructionsBn}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                rocket: { ...paymentConfig.rocket, instructionsBn: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* BANK DETAILS CONFIG */}
+                    <div className="bg-stone-50 border border-stone-200 rounded-xl p-5 space-y-4">
+                      <div className="flex items-center gap-2 border-b border-stone-200 pb-2.5">
+                        <div className="w-6 h-6 rounded-full bg-teal-600 text-white font-extrabold flex items-center justify-center text-xs">🏦</div>
+                        <h4 className="text-xs font-black text-stone-850 uppercase tracking-wider">Official Bank Account Config</h4>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Bank Name</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.bank.bankName}
+                              onChange={(e) => {
+                                setPaymentConfig({
+                                  ...paymentConfig,
+                                  bank: { ...paymentConfig.bank, bankName: e.target.value }
+                                });
+                              }}
+                              className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Account Number</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.bank.accountNumber}
+                              onChange={(e) => {
+                                setPaymentConfig({
+                                  ...paymentConfig,
+                                  bank: { ...paymentConfig.bank, accountNumber: e.target.value }
+                                });
+                              }}
+                              className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Account Name Beneficiary</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.bank.accountName}
+                              onChange={(e) => {
+                                setPaymentConfig({
+                                  ...paymentConfig,
+                                  bank: { ...paymentConfig.bank, accountName: e.target.value }
+                                });
+                              }}
+                              className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Branch Details</label>
+                            <input
+                              type="text"
+                              value={paymentConfig.bank.branch}
+                              onChange={(e) => {
+                                setPaymentConfig({
+                                  ...paymentConfig,
+                                  bank: { ...paymentConfig.bank, branch: e.target.value }
+                                });
+                              }}
+                              className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Routing Number</label>
+                          <input
+                            type="text"
+                            value={paymentConfig.bank.routingNumber}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                bank: { ...paymentConfig.bank, routingNumber: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Instructions (English)</label>
+                          <textarea
+                            rows={2}
+                            value={paymentConfig.bank.instructionsEn}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                bank: { ...paymentConfig.bank, instructionsEn: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 md:text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wide mb-1">Instructions (Bengali)</label>
+                          <textarea
+                            rows={2}
+                            value={paymentConfig.bank.instructionsBn}
+                            onChange={(e) => {
+                              setPaymentConfig({
+                                ...paymentConfig,
+                                bank: { ...paymentConfig.bank, instructionsBn: e.target.value }
+                              });
+                            }}
+                            className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 md:text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-center text-xs font-bold text-[#2D5A27] flex items-center justify-center gap-2">
+                    ✅ {currentLang === 'en' ? "Changes are saved in real-time and backed up locally." : "পরিবর্তনগুলো রিয়েল-টাইমে আপডেট এবং কম্পিউটারে সংরক্ষিত হয়েছে।"}
+                  </div>
+
+                </div>
+              )}
+
             </div>
           </div>
 
@@ -1872,9 +2720,9 @@ export default function App() {
               </h4>
               <ul className="space-y-2 text-stone-500 text-xs text-left">
                 <li><a href="#home" className="hover:text-emerald-500 transition-colors">Home</a></li>
+                <li><a href="#gallery" className="hover:text-emerald-500 transition-colors">Impact Gallery</a></li>
                 <li><a href="#about" className="hover:text-emerald-500 transition-colors">About Story</a></li>
                 <li><a href="#services" className="hover:text-emerald-500 transition-colors">Our Activities</a></li>
-                <li><a href="#gallery" className="hover:text-emerald-500 transition-colors">Impact Gallery</a></li>
               </ul>
             </div>
 

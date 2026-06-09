@@ -81,8 +81,10 @@ export default function AdminPortal({
   });
 
   // State to manage Gallery items
+  const [galleryEditingId, setGalleryEditingId] = useState<string | null>(null);
   const [galForm, setGalForm] = useState({
     imageUrl: '',
+    additionalImageUrls: '',
     titleEn: '', titleBn: '',
     categoryEn: '', categoryBn: '',
     date: new Date().toISOString().substring(0, 10)
@@ -212,6 +214,22 @@ export default function AdminPortal({
   };
 
   // 3. Handlers for Gallery CRUD
+  const handleEditGallery = (item: GalleryItem) => {
+    setGalleryEditingId(item.id);
+    const extraImages = (item.imageUrls || [])
+      .filter(url => url !== item.imageUrl)
+      .join(',\n');
+    setGalForm({
+      imageUrl: item.imageUrl,
+      additionalImageUrls: extraImages,
+      titleEn: item.title.en,
+      titleBn: item.title.bn,
+      categoryEn: item.category.en,
+      categoryBn: item.category.bn,
+      date: item.date
+    });
+  };
+
   const handleAddGalleryItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!galForm.imageUrl || !galForm.titleEn || !galForm.titleBn) {
@@ -219,30 +237,62 @@ export default function AdminPortal({
       return;
     }
 
-    const newItem: GalleryItem = {
-      id: `gal_${Date.now()}`,
-      imageUrl: galForm.imageUrl,
-      title: { en: galForm.titleEn, bn: galForm.titleBn },
-      date: galForm.date || new Date().toISOString().substring(0, 10),
-      category: { 
-        en: galForm.categoryEn || 'Campaign', 
-        bn: galForm.categoryBn || 'প্রচারণা' 
-      }
-    };
+    const extraImages = (galForm.additionalImageUrls || '')
+      .split(/[,\n]/)
+      .map(url => url.trim())
+      .filter(url => url !== '');
 
-    onUpdateGallery([newItem, ...gallery]);
+    if (galleryEditingId) {
+      const updatedGallery = gallery.map(item => {
+        if (item.id === galleryEditingId) {
+          return {
+            ...item,
+            imageUrl: galForm.imageUrl,
+            imageUrls: [galForm.imageUrl, ...extraImages],
+            title: { en: galForm.titleEn, bn: galForm.titleBn },
+            date: galForm.date || new Date().toISOString().substring(0, 10),
+            category: { 
+              en: galForm.categoryEn || 'Campaign', 
+              bn: galForm.categoryBn || 'প্রচারণা' 
+            }
+          };
+        }
+        return item;
+      });
+      onUpdateGallery(updatedGallery);
+      setGalleryEditingId(null);
+      triggerSuccess("Gallery post updated successfully!");
+    } else {
+      const newItem: GalleryItem = {
+        id: `gal_${Date.now()}`,
+        imageUrl: galForm.imageUrl,
+        imageUrls: [galForm.imageUrl, ...extraImages],
+        title: { en: galForm.titleEn, bn: galForm.titleBn },
+        date: galForm.date || new Date().toISOString().substring(0, 10),
+        category: { 
+          en: galForm.categoryEn || 'Campaign', 
+          bn: galForm.categoryBn || 'প্রচারণা' 
+        }
+      };
+      onUpdateGallery([newItem, ...gallery]);
+      triggerSuccess("Campaign Photo pinned to site gallery!");
+    }
+
     setGalForm({
       imageUrl: '',
+      additionalImageUrls: '',
       titleEn: '', titleBn: '',
       categoryEn: '', categoryBn: '',
       date: new Date().toISOString().substring(0, 10)
     });
-    triggerSuccess("Campaign Photo pinned to site gallery!");
   };
 
   const handleDeleteGallery = (id: string) => {
     if (confirm("Delete this campaign photograph layout?")) {
       onUpdateGallery(gallery.filter(g => g.id !== id));
+      if (galleryEditingId === id) {
+        setGalleryEditingId(null);
+      }
       triggerSuccess("Gallery image deleted.");
     }
   };
@@ -1015,7 +1065,7 @@ export default function AdminPortal({
                 {/* Form to submit image logs */}
                 <form onSubmit={handleAddGalleryItem} className="bg-white rounded-2xl p-6 border border-stone-200/60 shadow-lg space-y-4">
                   <h3 className="font-sans font-bold text-base text-stone-900 border-b border-stone-100 pb-3">
-                    Add Campaign Photograph Link
+                    {galleryEditingId ? "Edit Campaign Photograph Details" : "Add Campaign Photograph Link"}
                   </h3>
 
                   <div>
@@ -1028,7 +1078,19 @@ export default function AdminPortal({
                       placeholder="https://images.unsplash.com/photo-..."
                       className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 font-mono"
                     />
-                    <p className="text-[10px] text-stone-400 pt-1">Use fully hosted image links from Unsplash, Imgur, or Facebook CDN.</p>
+                    <p className="text-[10px] text-stone-400 pt-1">Primary photo link for the campaign card.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-500 mb-1">Additional Image URLs (Optional, comma-separated or one per line)</label>
+                    <textarea
+                      value={galForm.additionalImageUrls}
+                      onChange={(e) => setGalForm({ ...galForm, additionalImageUrls: e.target.value })}
+                      placeholder="e.g. https://images.unsplash.com/photo-1...,&#10;https://images.unsplash.com/photo-2..."
+                      rows={2}
+                      className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 font-mono resize-none focus:outline-emerald-500"
+                    />
+                    <p className="text-[10px] text-stone-400 pt-1">Add other picture links from Facebook CDN, Imgur or Unsplash to render this post as a slider gallery!</p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1090,12 +1152,30 @@ export default function AdminPortal({
                     </div>
                   </div>
 
-                  <div className="flex justify-end pt-2">
+                  <div className="flex justify-end gap-2 pt-2">
+                    {galleryEditingId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGalleryEditingId(null);
+                          setGalForm({
+                            imageUrl: '',
+                            additionalImageUrls: '',
+                            titleEn: '', titleBn: '',
+                            categoryEn: '', categoryBn: '',
+                            date: new Date().toISOString().substring(0, 10)
+                          });
+                        }}
+                        className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs font-bold rounded-lg cursor-pointer transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )}
                     <button
                       type="submit"
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
                     >
-                      Publish to Campaign Gallery
+                      {galleryEditingId ? "Update Campaign Post" : "Publish to Campaign Gallery"}
                     </button>
                   </div>
                 </form>
@@ -1117,6 +1197,13 @@ export default function AdminPortal({
                             referrerPolicy="no-referrer"
                           />
                           <button
+                            onClick={() => handleEditGallery(g)}
+                            className="absolute top-2 right-10 p-1.5 bg-white/95 rounded-lg text-stone-400 hover:text-emerald-600 transition-colors shadow-xs hover:shadow-md border border-stone-100"
+                            title="Edit Photo Info"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => handleDeleteGallery(g.id)}
                             className="absolute top-2 right-2 p-1.5 bg-white/95 rounded-lg text-stone-400 hover:text-rose-600 transition-colors shadow-xs hover:shadow-md border border-stone-100"
                             title="Remove Photo"
@@ -1126,9 +1213,16 @@ export default function AdminPortal({
                         </div>
                         <div className="p-2.5 bg-white">
                           <p className="text-[10px] font-bold text-stone-800 truncate">{g.title.en}</p>
-                          <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-sm inline-block mt-1">
-                            {g.category.en}
-                          </span>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-sm inline-block">
+                              {g.category.en}
+                            </span>
+                            {g.imageUrls && g.imageUrls.length > 1 && (
+                              <span className="text-[8px] font-medium text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded-full">
+                                {g.imageUrls.length} Photos
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}

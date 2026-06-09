@@ -28,9 +28,9 @@ export default function Navbar({
 
   const navLinks = [
     { name: { en: "Home", bn: "হোম" }, href: "#home" },
+    { name: { en: "Gallery", bn: "চিত্রশালা" }, href: "#gallery" },
     { name: { en: "About", bn: "আমাদের সম্পর্কে" }, href: "#about" },
     { name: { en: "Services", bn: "কার্যক্রম" }, href: "#services" },
-    { name: { en: "Gallery", bn: "চিত্রশালা" }, href: "#gallery" },
     { name: { en: "Community", bn: "মন্তব্য" }, href: "#community" },
     { name: { en: "Contact", bn: "যোগাযোগ" }, href: "#contact" }
   ];

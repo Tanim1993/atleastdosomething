@@ -51,9 +51,11 @@ export interface ServiceItem {
 export interface GalleryItem {
   id: string;
   imageUrl: string;
+  imageUrls?: string[];
   title: { en: string; bn: string };
   date: string; // e.g. "2026-05-12"
   category: { en: string; bn: string };
+  slideDuration?: number;
 }
 
 // Feedback / Testimonial
@@ -98,3 +100,42 @@ export interface ContactMessage {
   createdAt: string;
   isRead: boolean;
 }
+
+export interface PaymentChannelConfig {
+  number: string;
+  type: string; // "Personal / Send Money", "Merchant / Payment", etc.
+  instructionsEn: string;
+  instructionsBn: string;
+}
+
+export interface BankConfig {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  branch: string;
+  routingNumber: string;
+  instructionsEn: string;
+  instructionsBn: string;
+}
+
+export interface PaymentConfig {
+  bkash: PaymentChannelConfig;
+  nagad: PaymentChannelConfig;
+  rocket: PaymentChannelConfig;
+  bank: BankConfig;
+}
+
+export interface ManualDeclaration {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  amount: number;
+  channel: 'bkash' | 'nagad' | 'rocket' | 'bank';
+  campaignEn: string;
+  campaignBn: string;
+  referenceInfo: string;
+  createdAt: string;
+  status: 'Pending' | 'Verified' | 'Rejected';
+}
+

@@ -187,6 +187,11 @@ export const DEFAULT_GALLERY: GalleryItem[] = [
   {
     id: "gal_1",
     imageUrl: "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=800",
+    imageUrls: [
+      "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&q=80&w=800"
+    ],
     title: {
       en: "Smiles at Dhanmondi Lake Children Gathering",
       bn: "ধানমন্ডি লেকে সুবিধাবঞ্চিত শিশুদের মিলনমেলা"
@@ -197,6 +202,11 @@ export const DEFAULT_GALLERY: GalleryItem[] = [
   {
     id: "gal_2",
     imageUrl: "https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&q=80&w=800",
+    imageUrls: [
+      "https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1464692805480-a69dfaafdb0d?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=800"
+    ],
     title: {
       en: "Food Distribution in Northern Flood Areas",
       bn: "উত্তরাঞ্চলের বন্যাদুর্গত এলাকায় খাদ্য বিতরণ"
@@ -207,6 +217,10 @@ export const DEFAULT_GALLERY: GalleryItem[] = [
   {
     id: "gal_3",
     imageUrl: "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=600",
+    imageUrls: [
+      "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=600",
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&q=80&w=800"
+    ],
     title: {
       en: "Providing Sewing Machines to Struggling Mothers",
       bn: "অসহায় মায়েদের সেলাই মেশিন বিতরণ"
@@ -317,3 +331,65 @@ export const DEFAULT_CONTACT_MESSAGES: ContactMessage[] = [
     isRead: true
   }
 ];
+
+import { PaymentConfig, ManualDeclaration } from './types';
+
+export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
+  bkash: {
+    number: "+8801711002233",
+    type: "Personal (Send Money)",
+    instructionsEn: "1. Open your bKash app\n2. Select 'Send Money'\n3. Enter our personal number above\n4. Confirm amount and PIN",
+    instructionsBn: "১. আপনার বিকাশ অ্যাপ খুলুন\n২. 'সেন্ড মানি' সিলেক্ট করুন\n৩. উপরে দেয়া আমাদের পার্সোনাল নম্বরটি লিখুন\n৪. টাকার সংখ্যা এবং আপনার পিন ফ্রেম করুন"
+  },
+  nagad: {
+    number: "+8801711223344",
+    type: "Personal (Send Money)",
+    instructionsEn: "1. Open your Nagad app\n2. Select 'Send Money'\n3. Enter our personal number above\n4. Specify core amount and submit securely",
+    instructionsBn: "১. আপনার নগদ অ্যাপ খুলুন\n২. 'সেন্ড মানি' সিলেক্ট করুন\n৩. উপরে দেয়া আমাদের পার্সোনাল নম্বরটি লিখুন\n৪. টাকার সংখ্যা নির্ধারণ করে সাবমিট করুন"
+  },
+  rocket: {
+    number: "+8801911445566",
+    type: "Personal (Send Money)",
+    instructionsEn: "1. Dial *322# or open Rocket app\n2. Select 'Send Money'\n3. Enter our Rocket personal number above\n4. Submit and record transaction ID",
+    instructionsBn: "১. *৩২২# ডায়াল করুন অথবা রকেট অ্যাপ খুলুন\n২. 'সেন্ড মানি' সিলেক্ট করুন\n৩. উপরে দেয়া আমাদের রকেট পার্সোনাল নম্বরটি লিখুন\n৪. সাবমিট করুন এবং ট্রানজেকশন আইডি টি গুছিয়ে রাখুন"
+  },
+  bank: {
+    bankName: "City Bank PLC",
+    accountName: "Atleast Do Something Foundation",
+    accountNumber: "1102938475001",
+    branch: "Banani Branch, Dhaka",
+    routingNumber: "220271484",
+    instructionsEn: "1. Deposit via Internet Banking (CityTouch) or local branch\n2. Put 'Atleast Do Something Foundation' as beneficiary\n3. Copy routing or account details",
+    instructionsBn: "১. ইন্টারনেট ব্যাংকিং (সিটিটাচ) বা আপনার নিকটস্থ যেকোনো শাখা থেকে সরাসরি জমা করুন\n২. বেনিফিশিয়ারি অ্যাকাউন্টে 'Atleast Do Something Foundation' লিখুন\n৩. অ্যাকাউন্ট ও রাউটিং নম্বর নিশ্চিত করুন"
+  }
+};
+
+export const DEFAULT_DECLARATIONS: ManualDeclaration[] = [
+  {
+    id: "decl_1",
+    name: "Kamrul Hasan Shimul",
+    email: "kamrul.hasan@hotmail.com",
+    phone: "01755-998822",
+    amount: 1500,
+    channel: "bkash",
+    campaignEn: "Emergency Food Package",
+    campaignBn: "জরুরী খাদ্য সামগ্রী বিতরণ",
+    referenceInfo: "Sent from 01755-998822, TxID: BK28D910",
+    createdAt: "2026-06-09T03:10:00Z",
+    status: "Pending"
+  },
+  {
+    id: "decl_2",
+    name: "Nushrat Jahan Riya",
+    email: "nushrat.riya96@gmail.com",
+    phone: "01811-334455",
+    amount: 2400,
+    channel: "nagad",
+    campaignEn: "Underprivileged Education",
+    campaignBn: "সুবিধাবঞ্চিত শিশুদের শিক্ষা সহায়তা",
+    referenceInfo: "Sent from 01811-334455, Nagad TxID: NG10A230",
+    createdAt: "2026-06-08T18:30:00Z",
+    status: "Verified"
+  }
+];
+
